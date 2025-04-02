@@ -1,8 +1,4 @@
-:root,
-body {
-  padding: 0;
-  margin: 0;
-}
+
 
 .login-container {
   display: flex;
@@ -22,6 +18,17 @@ body {
 .login-left-section img {
   width: 100%;
   height: auto;
+}
+.nav_btn {
+  color: rgb(86, 86, 243);
+  text-decoration: none;
+  margin: 0 auto;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  position: relative;
+  justify-content: center;
+  margin-top: 20px;
 }
 
 .login-right-section {

@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { setTokens, clearTokens } from "../Token/tokenSlice";
 import { showAlert } from "../../Features/alerter/alertSlice";
 
-const API_BASE_URL = "cliqi-backend.vercel.app/api/";
+const API_BASE_URL = "http://cliqi-backend.vercel.app/api/";
 
 const baseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,

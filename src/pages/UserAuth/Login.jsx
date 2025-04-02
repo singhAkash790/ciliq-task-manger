@@ -11,7 +11,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useAddDataMutation } from "../../Features/API/apiSlice";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { setTokens } from "../../Features/Token/tokenSlice";
 import { showAlert } from "../../Features/alerter/alertSlice";
 import image01 from "../../assets/images/image01.webp";
@@ -67,7 +67,7 @@ const LoginPage = () => {
         if (err.response) {
           switch (err.response.status) {
             case 401:
-              errorMessage = "Invalid email or password";
+              errorMessage = "Invalid email or pwd";
               break;
             case 404:
               errorMessage = "Account not found";
@@ -118,12 +118,17 @@ const LoginPage = () => {
             name="pwd"
             variant="outlined"
             margin="normal"
-            type={showPassword ? "text" : "password"}
+            type={showPassword ? "text" : "pwd"}
             value={loginFormik.values.pwd}
             onChange={loginFormik.handleChange}
             onBlur={loginFormik.handleBlur}
-            error={loginFormik.touched.pwd && Boolean(loginFormik.errors.pwd)}
-            helperText={loginFormik.touched.pwd && loginFormik.errors.pwd}
+            error={
+              loginFormik.touched.pwd &&
+              Boolean(loginFormik.errors.pwd)
+            }
+            helperText={
+              loginFormik.touched.pwd && loginFormik.errors.pwd
+            }
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
@@ -151,6 +156,9 @@ const LoginPage = () => {
               )}
             </ThemeButton>
           </div>
+          <Link to="/register" className="nav_btn">
+            Create a new account
+          </Link>
         </form>
       </div>
     </div>

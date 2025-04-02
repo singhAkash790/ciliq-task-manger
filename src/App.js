@@ -3,6 +3,7 @@ import { useRoutes } from "react-router-dom";
 import AlertComponent from "./components/Alerter";
 import Themeroutes from "./routes/Router";
 import ConfirmationDialog from "./components/ConfirmationDialog";
+import "./index.css"
 
 // Loading component
 const Loading = () => (

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useFormik, FormikProvider } from "formik";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 import * as Yup from "yup";
 import { useAddDataMutation } from "../../Features/API/apiSlice";
 import { useDispatch } from "react-redux";
@@ -7,7 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { setTokens } from "../../Features/Token/tokenSlice";
 import { showAlert } from "../../Features/alerter/alertSlice";
 import image01 from "../../assets/images/image01.webp";
-import { Button, TextField } from "@mui/material";
+import { Button, IconButton, InputAdornment, TextField } from "@mui/material";
 import "./index.css";
 
 const SignUpPage = () => {
@@ -15,6 +16,10 @@ const SignUpPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword((prev) => !prev);
+  };
 
   // Form validation schema
   const validationSchema = Yup.object({
@@ -22,13 +27,13 @@ const SignUpPage = () => {
     email: Yup.string()
       .email("Invalid email address")
       .required("Email is required"),
-    password: Yup.string()
+    pwd: Yup.string()
       .min(8, "Password must be at least 8 characters")
       .required("Password is required"),
   });
 
   const formik = useFormik({
-    initialValues: { username: "", email: "", password: "" },
+    initialValues: { username: "", email: "", pwd: "" },
     validationSchema,
     onSubmit: async (values, { setSubmitting }) => {
       setIsLoading(true);
@@ -51,7 +56,7 @@ const SignUpPage = () => {
         if (err.response) {
           switch (err.response.status) {
             case 401:
-              errorMessage = "Invalid email or password";
+              errorMessage = "Invalid email or pwd";
               break;
             case 404:
               errorMessage = "Account not found";
@@ -110,16 +115,28 @@ const SignUpPage = () => {
             />
             <TextField
               fullWidth
-              id="password"
-              name="password"
               label="Password"
-              type="password"
-              value={formik.values.password}
+              name="pwd"
+              variant="outlined"
+              margin="normal"
+              type={showPassword ? "text" : "pwd"}
+              value={formik.values.pwd}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
-              error={formik.touched.password && Boolean(formik.errors.password)}
-              helperText={formik.touched.password && formik.errors.password}
-              margin="normal"
+              error={formik.touched.pwd && Boolean(formik.errors.pwd)}
+              helperText={formik.touched.pwd && formik.errors.pwd}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={handleTogglePasswordVisibility}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <div className="login-button-container">
               <Button
@@ -131,14 +148,9 @@ const SignUpPage = () => {
                 {isLoading ? "Loading..." : "Sign Up"}
               </Button>
             </div>
-            <div className="mt-4 flex justify-center">
-              <Link
-                to="/sign-in"
-                className="text-blue-500 hover:underline text-sm"
-              >
-                Already have an account? Sign In
-              </Link>
-            </div>
+            <Link to="/sign-in" className="nav_btn">
+              Already have an account? Sign In
+            </Link>
           </form>
         </FormikProvider>
       </div>
