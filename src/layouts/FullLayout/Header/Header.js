@@ -24,7 +24,9 @@ import {
 import userimg from "../../../assets/images/users/6.jpg";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import logoutUser from '../../../Features/Token/tokenSlice';
+import { logoutUser } from '../../../Features/Token/tokenSlice';
+
+
 
 // Styled components
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
@@ -48,10 +50,10 @@ const Header = (props) => {
     setAnchorEl(null);
   };
 
-  const handleLogout = async () => {
-    await dispatch(logoutUser());
-    navigate('/login'); // Redirect to login page after logout
-  }
+  const handleLogout = () => {
+    dispatch(logoutUser()); // Dispatching the logout action
+    navigate('/login'); // Redirecting to login page
+  };
 
   const handleProfile = () => {
     handleClose();

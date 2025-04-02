@@ -25,21 +25,7 @@ export const verifyToken = createAsyncThunk(
   }
 );
 
-export const logoutUser = createAsyncThunk(
-  "token/logoutUser",
-  async (_, thunkAPI) => {
-    try {
-      await axios.post("/api/auth/logout", {}, {
-        withCredentials: true
-      });
-      thunkAPI.dispatch(clearTokens());
-      return true;
-    } catch (error) {
-      thunkAPI.dispatch(clearTokens());
-      return thunkAPI.rejectWithValue(error.response?.data || "Logout failed");
-    }
-  }
-);
+
 
 const tokenSlice = createSlice({
   name: "token",
@@ -67,6 +53,13 @@ const tokenSlice = createSlice({
       } catch (error) {
         console.error("Error saving to localStorage:", error);
       }
+    },
+    logoutUser: (state) => {
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
     },
     clearTokens: (state) => {
       state.accessToken = null;
@@ -106,13 +99,9 @@ const tokenSlice = createSlice({
           console.error("Error clearing localStorage:", error);
         }
       })
-      .addCase(logoutUser.fulfilled, (state) => {
-        state.isAuthenticated = false;
-        state.accessToken = null;
-        state.refreshToken = null;
-      });
+
   },
 });
 
-export const { setTokens, clearTokens, setAuthStatus } = tokenSlice.actions;
+export const { setTokens, clearTokens, setAuthStatus, logoutUser } = tokenSlice.actions;
 export default tokenSlice.reducer;
