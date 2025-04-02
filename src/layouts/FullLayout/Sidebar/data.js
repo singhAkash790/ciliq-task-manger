@@ -20,11 +20,6 @@ const Menuitems = [
     title: "Import",
     icon: AssignmentTurnedInOutlinedIcon,
     href: "/import-data",
-  },
-  {
-    title: "Export",
-    icon: DownloadForOfflineOutlined,
-    href: "/export-data",
   }
 ];
 
