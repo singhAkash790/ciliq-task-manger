@@ -14,13 +14,11 @@ import {
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useAddDataMutation } from "../../Features/API/apiSlice";
 
-// Dropdown Options
 const statusOptions = ["Pending", "In Progress", "Completed"];
 const priorityOptions = ["Low", "Medium", "High"];
 
-// Validation Schema
 const validationSchema = Yup.object({
   title: Yup.string().required("Title is required"),
   description: Yup.string(),
@@ -31,19 +29,26 @@ const validationSchema = Yup.object({
 
 const AddTask = () => {
   const navigate = useNavigate();
+  const [addTask, { isLoading }] = useAddDataMutation();
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
       // Format the date to ISO string
       const formattedValues = {
         ...values,
-        dueDate: new Date(values.dueDate).toISOString()
+        dueDate: new Date(values.dueDate).toISOString(),
       };
 
-      const response = await axios.post("http://localhost:5000/api/tasks", formattedValues);
-      console.log("Task created:", response.data);
-      navigate("/tasks"); // Redirect after adding task
+      // Use RTK Query mutation for adding a task. The onQueryStarted logic in the API slice
+      // will automatically handle alerts on success or failure.
+      await addTask({
+        url: "tasks",
+        body: formattedValues,
+      }).unwrap();
+
+      navigate("/tasks");
     } catch (error) {
+      // Optionally, additional error handling can be done here.
       console.error("Error creating task:", error);
     } finally {
       setSubmitting(false);
@@ -71,7 +76,9 @@ const AddTask = () => {
           {({ isSubmitting }) => (
             <Form>
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom>Task Details</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Task Details
+                </Typography>
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
                     <Field
@@ -81,9 +88,12 @@ const AddTask = () => {
                       fullWidth
                       variant="outlined"
                     />
-                    <ErrorMessage name="title" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="title"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
-
                   <Grid item xs={12}>
                     <Field
                       as={TextField}
@@ -94,7 +104,11 @@ const AddTask = () => {
                       rows={3}
                       variant="outlined"
                     />
-                    <ErrorMessage name="description" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="description"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
@@ -102,7 +116,9 @@ const AddTask = () => {
               <Divider sx={{ my: 4 }} />
 
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom>Status & Priority</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Status & Priority
+                </Typography>
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={6}>
                     <Field
@@ -119,9 +135,12 @@ const AddTask = () => {
                         </MenuItem>
                       ))}
                     </Field>
-                    <ErrorMessage name="status" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="status"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
-
                   <Grid item xs={12} md={6}>
                     <Field
                       as={TextField}
@@ -137,7 +156,11 @@ const AddTask = () => {
                         </MenuItem>
                       ))}
                     </Field>
-                    <ErrorMessage name="priority" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="priority"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
@@ -145,7 +168,9 @@ const AddTask = () => {
               <Divider sx={{ my: 4 }} />
 
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom>Due Date</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Due Date
+                </Typography>
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
                     <Field
@@ -157,7 +182,11 @@ const AddTask = () => {
                       variant="outlined"
                       InputLabelProps={{ shrink: true }}
                     />
-                    <ErrorMessage name="dueDate" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="dueDate"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
@@ -165,12 +194,16 @@ const AddTask = () => {
               <Button
                 type="submit"
                 variant="contained"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoading}
                 size="large"
                 fullWidth
                 sx={{ mt: 2 }}
               >
-                {isSubmitting ? <CircularProgress size={24} /> : "Add Task"}
+                {isSubmitting || isLoading ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  "Add Task"
+                )}
               </Button>
             </Form>
           )}

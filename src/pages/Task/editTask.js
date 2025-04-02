@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   Container,
   TextField,
@@ -9,12 +9,14 @@ import {
   Divider,
   CircularProgress,
   Box,
-  MenuItem
+  MenuItem,
 } from "@mui/material";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import { useDispatch } from "react-redux";
+import { useGetDataQuery, useEditDataMutation } from "../../Features/API/apiSlice";
+import { showAlert } from "../../Features/alerter/alertSlice";
 
 // Dropdown Options
 const statusOptions = ["Pending", "In Progress", "Completed"];
@@ -31,50 +33,43 @@ const validationSchema = Yup.object({
 
 const EditTask = () => {
   const { id } = useParams();
-  const [taskData, setTaskData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  // Use RTK Query to fetch task data by id.
+  const {
+    data: taskData,
+    error: fetchError,
+    isLoading,
+  } = useGetDataQuery(`tasks/${id}`);
+
+  // Mutation hook to edit task
+  const [editTask, { isLoading: isSubmitting }] = useEditDataMutation();
+
+  // Alert for fetch error, if any.
   useEffect(() => {
-    const fetchTask = async () => {
-      try {
-        const response = await axios.get(`http://localhost:5000/api/tasks/${id}`);
-        // Format the date for the date input field
-        const formattedData = {
-          ...response.data,
-          dueDate: response.data.dueDate.split('T')[0] // Extract YYYY-MM-DD from ISO string
-        };
-        setTaskData(formattedData);
-        console.log(formattedData)
-      } catch (error) {
-        console.error("Error fetching task:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTask();
-  }, [id]);
-
-  const handleSubmit = async (values, { setSubmitting }) => {
-    try {
-      // Format the date to ISO string
-      const formattedValues = {
-        ...values,
-        dueDate: new Date(values.dueDate).toISOString()
-      };
-
-      await axios.put(`http://localhost:5000/api/tasks/${id}`, formattedValues);
-      navigate("/tasks"); // Redirect after successful update
-    } catch (error) {
-      console.error("Error updating task:", error);
-    } finally {
-      setSubmitting(false);
+    if (fetchError) {
+      dispatch(
+        showAlert({
+          message: fetchError.error || "Error fetching task.",
+          status: "error",
+          position: { top: "20px", right: "20px" },
+          autoHideDuration: 5000,
+        })
+      );
     }
-  };
+  }, [fetchError, dispatch]);
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "50vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -83,10 +78,48 @@ const EditTask = () => {
   if (!taskData) {
     return (
       <Container maxWidth="md">
-        <Typography variant="h6" sx={{ mt: 4 }}>Task not found</Typography>
+        <Typography variant="h6" sx={{ mt: 4 }}>
+          Task not found
+        </Typography>
       </Container>
     );
   }
+
+  // Format dueDate for input (YYYY-MM-DD)
+  const formattedTaskData = {
+    ...taskData,
+    dueDate: taskData.dueDate.split("T")[0],
+  };
+
+  const handleSubmit = async (values, { setSubmitting }) => {
+    try {
+      // Convert dueDate to ISO string for the API call.
+      const formattedValues = {
+        ...values,
+        dueDate: new Date(values.dueDate).toISOString(),
+      };
+
+      // Update the task using RTK Query mutation.
+      await editTask({
+        url: `tasks/${id}`,
+        body: formattedValues,
+      }).unwrap();
+
+      navigate("/tasks"); // Redirect after successful update.
+    } catch (error) {
+      // Additional error handling can be done here if required.
+      dispatch(
+        showAlert({
+          message: error.message || "Error updating task.",
+          status: "error",
+          position: { top: "20px", right: "20px" },
+          autoHideDuration: 5000,
+        })
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Container maxWidth="md">
@@ -96,15 +129,17 @@ const EditTask = () => {
         </Typography>
 
         <Formik
-          initialValues={taskData}
+          initialValues={formattedTaskData}
           validationSchema={validationSchema}
           enableReinitialize={true}
           onSubmit={handleSubmit}
         >
-          {({ isSubmitting }) => (
+          {() => (
             <Form>
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom>Task Details</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Task Details
+                </Typography>
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
                     <Field
@@ -114,7 +149,11 @@ const EditTask = () => {
                       fullWidth
                       variant="outlined"
                     />
-                    <ErrorMessage name="title" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="title"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
 
                   <Grid item xs={12}>
@@ -127,7 +166,11 @@ const EditTask = () => {
                       rows={3}
                       variant="outlined"
                     />
-                    <ErrorMessage name="description" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="description"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
@@ -135,7 +178,9 @@ const EditTask = () => {
               <Divider sx={{ my: 4 }} />
 
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom>Status & Priority</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Status & Priority
+                </Typography>
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={6}>
                     <Field
@@ -152,7 +197,11 @@ const EditTask = () => {
                         </MenuItem>
                       ))}
                     </Field>
-                    <ErrorMessage name="status" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="status"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
 
                   <Grid item xs={12} md={6}>
@@ -170,7 +219,11 @@ const EditTask = () => {
                         </MenuItem>
                       ))}
                     </Field>
-                    <ErrorMessage name="priority" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="priority"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
@@ -178,7 +231,9 @@ const EditTask = () => {
               <Divider sx={{ my: 4 }} />
 
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom>Due Date</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Due Date
+                </Typography>
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
                     <Field
@@ -190,7 +245,11 @@ const EditTask = () => {
                       variant="outlined"
                       InputLabelProps={{ shrink: true }}
                     />
-                    <ErrorMessage name="dueDate" component="div" style={{ color: "red" }} />
+                    <ErrorMessage
+                      name="dueDate"
+                      component="div"
+                      style={{ color: "red" }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
@@ -203,7 +262,11 @@ const EditTask = () => {
                 fullWidth
                 sx={{ mt: 2 }}
               >
-                {isSubmitting ? <CircularProgress size={24} /> : "Save Changes"}
+                {isSubmitting ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
             </Form>
           )}

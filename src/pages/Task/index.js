@@ -15,133 +15,125 @@ import {
   IconButton,
   TextField,
   CircularProgress,
-  Pagination
+  Pagination,
 } from "@mui/material";
 import { Add, Edit, Delete, CheckCircle } from "@mui/icons-material";
-import axios from "axios";
+import { useGetDataQuery, useEditDataMutation, useDeleteDataMutation } from "../../Features/API/apiSlice";
+import { useDispatch } from "react-redux";
+import { showAlert } from "../../Features/alerter/alertSlice";
 
 const TaskList = () => {
-  const [tasks, setTasks] = useState([]);
+  const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: "taskId", direction: "asc" });
-  const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
     totalPages: 1,
-    totalTasks: 0
+    totalTasks: 0,
   });
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get("http://localhost:5000/api/tasks", {
-          params: {
-            page: pagination.page,
-            limit: pagination.limit,
-            sortBy: sortConfig.key,
-            sortOrder: sortConfig.direction,
-            search: searchQuery
-          }
-        });
+  // Build query string with current params. Adjust parameter names to match your backend API.
+  const queryString = `tasks?page=${pagination.page}&limit=${pagination.limit}&sortBy=${sortConfig.key}&sortOrder=${sortConfig.direction}&search=${searchQuery}`;
 
-        setTasks(response.data.tasks);
-        setPagination(prev => ({
-          ...prev,
-          totalPages: response.data.totalPages,
-          totalTasks: response.data.totalTasks
-        }));
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTasks();
-  }, [pagination.page, pagination.limit, sortConfig, searchQuery]);
+  // Using RTK Query to fetch tasks.
+  const {
+    data: responseData,
+    error,
+    isLoading,
+    refetch,
+  } = useGetDataQuery(queryString);
+
+  // When responseData updates, update pagination and tasks.
+  const tasks = responseData?.tasks || [];
+  useEffect(() => {
+    if (responseData) {
+      setPagination((prev) => ({
+        ...prev,
+        totalPages: responseData.totalPages,
+        totalTasks: responseData.totalTasks,
+      }));
+    }
+  }, [responseData]);
+
+  // Dispatch alert if query error occurs
+  useEffect(() => {
+    if (error) {
+      dispatch(
+        showAlert({
+          message: error.error || "Error fetching tasks.",
+          status: "error",
+          position: { top: "20px", right: "20px" },
+          autoHideDuration: 5000,
+        })
+      );
+    }
+  }, [error, dispatch]);
+
+  const [editTask] = useEditDataMutation();
+  const [deleteTaskMutation] = useDeleteDataMutation();
 
   const handlePageChange = (event, value) => {
-    setPagination(prev => ({ ...prev, page: value }));
+    setPagination((prev) => ({ ...prev, page: value }));
   };
 
   const handleSearch = (event) => {
     setSearchQuery(event.target.value);
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   const handleSort = (key) => {
-    const direction = sortConfig.key === key && sortConfig.direction === "asc"
-      ? "desc"
-      : "asc";
+    const direction =
+      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
     setSortConfig({ key, direction });
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
   };
-
-
 
   const markAsCompleted = async (id) => {
     try {
-      await axios.patch(`http://localhost:5000/api/tasks/${id}/complete`);
-      setTasks(prevTasks =>
-        prevTasks.map(task =>
-          task._id === id ? { ...task, status: "Completed" } : task
-        )
+      // Adjust the URL or body as required by your API.
+      await editTask({
+        url: `tasks/${id}/complete`,
+        body: { status: "Completed" },
+      }).unwrap();
+      // Optionally refetch tasks after a successful update.
+      refetch();
+    } catch (err) {
+      // Error handling is automatically done by the mutation's onQueryStarted,
+      // but you can also dispatch an alert manually here if needed.
+      dispatch(
+        showAlert({
+          message: err.message || "Error marking task as complete.",
+          status: "error",
+          position: { top: "20px", right: "20px" },
+          autoHideDuration: 5000,
+        })
       );
-    } catch (error) {
-      console.error("Error marking task as complete:", error);
     }
   };
 
   const deleteTask = async (id) => {
     try {
-      await axios.delete(`http://localhost:5000/api/tasks/${id}`);
-      setTasks(prevTasks => prevTasks.filter(task => task._id !== id));
-    } catch (error) {
-      console.error("Error deleting task:", error);
+      await deleteTaskMutation({ url: `tasks/${id}` }).unwrap();
+      refetch();
+    } catch (err) {
+      dispatch(
+        showAlert({
+          message: err.message || "Error deleting task.",
+          status: "error",
+          position: { top: "20px", right: "20px" },
+          autoHideDuration: 5000,
+        })
+      );
     }
   };
-
-
-
-  const sortedTasks = [...tasks].sort((a, b) => {
-    // Handle numeric sorting for taskId
-    if (sortConfig.key === "taskId") {
-      return sortConfig.direction === "asc"
-        ? a.taskId - b.taskId
-        : b.taskId - a.taskId;
-    }
-
-    // Handle date sorting
-    if (sortConfig.key === "dueDate") {
-      const dateA = new Date(a.dueDate);
-      const dateB = new Date(b.dueDate);
-      return sortConfig.direction === "asc"
-        ? dateA - dateB
-        : dateB - dateA;
-    }
-
-    // Default string sorting
-    if (a[sortConfig.key] < b[sortConfig.key]) {
-      return sortConfig.direction === "asc" ? -1 : 1;
-    }
-    if (a[sortConfig.key] > b[sortConfig.key]) {
-      return sortConfig.direction === "asc" ? 1 : -1;
-    }
-    return 0;
-  });
-
-  const filteredTasks = sortedTasks.filter((task) =>
-    task.title.toLowerCase().includes(searchQuery) ||
-    task.description.toLowerCase().includes(searchQuery)
-  );
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-GB", {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   };
 
@@ -171,9 +163,16 @@ const TaskList = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Container
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
         <CircularProgress />
       </Container>
     );
@@ -209,47 +208,64 @@ const TaskList = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell onClick={() => handleSort("taskId")} sx={{ cursor: 'pointer' }}>
-                  Task ID {sortConfig.key === "taskId" && (
-                    sortConfig.direction === "asc" ? "↑" : "↓"
-                  )}
+                <TableCell
+                  onClick={() => handleSort("taskId")}
+                  sx={{ cursor: "pointer" }}
+                >
+                  Task ID{" "}
+                  {sortConfig.key === "taskId" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
                 </TableCell>
-                <TableCell onClick={() => handleSort("title")} sx={{ cursor: 'pointer' }}>
-                  Title {sortConfig.key === "title" && (
-                    sortConfig.direction === "asc" ? "↑" : "↓"
-                  )}
+                <TableCell
+                  onClick={() => handleSort("title")}
+                  sx={{ cursor: "pointer" }}
+                >
+                  Title{" "}
+                  {sortConfig.key === "title" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
                 </TableCell>
                 <TableCell>Description</TableCell>
-                <TableCell onClick={() => handleSort("dueDate")} sx={{ cursor: 'pointer' }}>
-                  Due Date {sortConfig.key === "dueDate" && (
-                    sortConfig.direction === "asc" ? "↑" : "↓"
-                  )}
+                <TableCell
+                  onClick={() => handleSort("dueDate")}
+                  sx={{ cursor: "pointer" }}
+                >
+                  Due Date{" "}
+                  {sortConfig.key === "dueDate" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
                 </TableCell>
-                <TableCell onClick={() => handleSort("priority")} sx={{ cursor: 'pointer' }}>
-                  Priority {sortConfig.key === "priority" && (
-                    sortConfig.direction === "asc" ? "↑" : "↓"
-                  )}
+                <TableCell
+                  onClick={() => handleSort("priority")}
+                  sx={{ cursor: "pointer" }}
+                >
+                  Priority{" "}
+                  {sortConfig.key === "priority" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
                 </TableCell>
-                <TableCell onClick={() => handleSort("status")} sx={{ cursor: 'pointer' }}>
-                  Status {sortConfig.key === "status" && (
-                    sortConfig.direction === "asc" ? "↑" : "↓"
-                  )}
+                <TableCell
+                  onClick={() => handleSort("status")}
+                  sx={{ cursor: "pointer" }}
+                >
+                  Status{" "}
+                  {sortConfig.key === "status" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
                 </TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredTasks.map((task, index) => (
+              {tasks.map((task) => (
                 <TableRow key={task._id}>
                   <TableCell>{task.taskId}</TableCell>
                   <TableCell>{task.title}</TableCell>
-                  <TableCell sx={{
-                    maxWidth: 200,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {task.description || '-'}
+                  <TableCell
+                    sx={{
+                      maxWidth: 200,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {task.description || "-"}
                   </TableCell>
                   <TableCell>{formatDate(task.dueDate)}</TableCell>
                   <TableCell>
@@ -293,14 +309,12 @@ const TaskList = () => {
           </Table>
         </TableContainer>
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
         <Pagination
           count={pagination.totalPages}
           page={pagination.page}
           onChange={handlePageChange}
           color="primary"
-          // showFirstButton
-          // showLastButton
         />
       </Box>
     </Container>

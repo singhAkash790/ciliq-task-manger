@@ -13,35 +13,35 @@ import {
     TextField,
     Paper,
     TableContainer,
-    Alert,
-    Snackbar
+    Alert
 } from '@mui/material';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import axios from 'axios';
+import { useDispatch } from 'react-redux';
+import { showAlert } from '../Features/alerter/alertSlice';
 
 const FileUploadImport = () => {
+    const dispatch = useDispatch();
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [importedData, setImportedData] = useState([]);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [fileName, setFileName] = useState('');
-    const [notification, setNotification] = useState({
-        open: false,
-        message: '',
-        severity: 'info'
-    });
 
     const requiredFields = ['title', 'description', 'duedate'];
 
-
-    const showNotification = (message, severity = "info") => {
-        setNotification({ open: true, message, severity });
-    };
-
-    const handleNotificationClose = () => {
-        setNotification(prev => ({ ...prev, open: false }));
+    // Helper to dispatch alerts via the alerter slice.
+    const triggerAlert = (message, severity = "info") => {
+        dispatch(
+            showAlert({
+                message,
+                status: severity,
+                position: { top: "20px", right: "20px" },
+                autoHideDuration: 6000
+            })
+        );
     };
 
     const normalizeKey = (key) => {
@@ -50,8 +50,6 @@ const FileUploadImport = () => {
 
     const validateRow = (row, index) => {
         const errors = [];
-
-        // Check required fields
         requiredFields.forEach(field => {
             const normalizedField = normalizeKey(field);
             const matchingKey = Object.keys(row).find(key => normalizeKey(key) === normalizedField);
@@ -59,10 +57,6 @@ const FileUploadImport = () => {
                 errors.push(`Missing ${field}`);
             }
         });
-
-        // Check priority format if exists
-
-
         if (errors.length > 0) {
             throw new Error(`Row ${index + 1}: ${errors.join('; ')}`);
         }
@@ -74,7 +68,6 @@ const FileUploadImport = () => {
             const titleKey = Object.keys(item).find(key => normalizeKey(key) === 'title');
             const descKey = Object.keys(item).find(key => normalizeKey(key) === 'description');
             const dateKey = Object.keys(item).find(key => normalizeKey(key) === 'duedate');
-
             return {
                 title: item[titleKey] || '',
                 description: item[descKey] || '',
@@ -107,13 +100,13 @@ const FileUploadImport = () => {
                 'application/vnd.ms-excel',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             ];
-
-            if (!validTypes.includes(selectedFile.type) &&
-                !selectedFile.name.match(/\.(csv|xlsx|xls)$/i)) {
+            if (
+                !validTypes.includes(selectedFile.type) &&
+                !selectedFile.name.match(/\.(csv|xlsx|xls)$/i)
+            ) {
                 setError('Please upload a valid CSV or Excel file');
                 return;
             }
-
             setError('');
             setFile(selectedFile);
             setFileName(selectedFile.name);
@@ -157,32 +150,26 @@ const FileUploadImport = () => {
             setError('Please select a file first');
             return;
         }
-
         setLoading(true);
         setError('');
-
         try {
             let rawData;
-
             if (file.name.match(/\.xlsx?$/i)) {
                 rawData = await processExcelFile(file);
             } else {
                 rawData = await processCSVFile(file);
             }
-
             // Validate each row
             rawData.forEach((row, index) => validateRow(row, index));
-
             // Transform to backend format
             const processedData = transformToBackendFormat(rawData);
-
             setImportedData(processedData);
             setIsDataLoaded(true);
-            showNotification(`Successfully imported ${processedData.length} records`, 'success');
+            triggerAlert(`Successfully imported ${processedData.length} records`, 'success');
         } catch (error) {
             console.error('Import error:', error);
             setError(error.message);
-            showNotification(`Import failed: ${error.message}`, 'error');
+            triggerAlert(`Import failed: ${error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -190,19 +177,15 @@ const FileUploadImport = () => {
 
     const handleSaveData = async () => {
         if (!importedData.length) return;
-
         try {
             setLoading(true);
-
             // Final validation before sending
             const validData = importedData.filter(item => {
                 return item.title && item.dueDate && item.priority;
             });
-
             if (validData.length !== importedData.length) {
                 throw new Error('Some data failed validation and was removed');
             }
-
             const response = await axios.post(
                 "http://localhost:5000/api/tasks/bulk-import",
                 validData,
@@ -212,9 +195,7 @@ const FileUploadImport = () => {
                     }
                 }
             );
-
-            showNotification(`Successfully saved ${validData.length} tasks`, 'success');
-
+            triggerAlert(`Successfully saved ${validData.length} tasks`, 'success');
             // Update with any IDs returned from backend
             if (response.data && Array.isArray(response.data)) {
                 setImportedData(prev => prev.map((item, index) => ({
@@ -224,17 +205,19 @@ const FileUploadImport = () => {
             }
         } catch (error) {
             console.error('Save error:', error);
-            const errorMsg = error.response?.data?.details?.join(', ') ||
+            const errorMsg =
+                error.response?.data?.details?.join(', ') ||
                 error.response?.data?.error ||
                 error.message;
-            showNotification(`Save failed: ${errorMsg}`, 'error');
+            triggerAlert(`Save failed: ${errorMsg}`, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const columns = importedData.length > 0 ?
-        Object.keys(importedData[0]).filter(key => key !== 'id') : [];
+    const columns = importedData.length > 0
+        ? Object.keys(importedData[0]).filter(key => key !== 'id')
+        : [];
 
     return (
         <Container sx={{ mt: 4, width: "85%" }}>
@@ -243,7 +226,6 @@ const FileUploadImport = () => {
                 <Alert severity="info" sx={{ mb: 2 }}>
                     Required fields: {requiredFields.join(', ')}
                 </Alert>
-
                 <Box display="flex" gap={2} alignItems="center" mb={2}>
                     <TextField
                         fullWidth
@@ -253,11 +235,7 @@ const FileUploadImport = () => {
                         error={!!error}
                         helperText={error || "Choose a CSV or Excel file"}
                     />
-                    <Button
-                        variant="contained"
-                        component="label"
-                        sx={{ height: 56 }}
-                    >
+                    <Button variant="contained" component="label" sx={{ height: 56 }}>
                         Browse
                         <input
                             type="file"
@@ -267,7 +245,6 @@ const FileUploadImport = () => {
                         />
                     </Button>
                 </Box>
-
                 <Button
                     variant="contained"
                     color="primary"
@@ -287,10 +264,10 @@ const FileUploadImport = () => {
                             <TableHead>
                                 <TableRow>
                                     {columns.map((column, index) => (
-                                        <TableCell key={index} sx={{
-                                            fontWeight: 'bold',
-                                            bgcolor: 'background.paper'
-                                        }}>
+                                        <TableCell
+                                            key={index}
+                                            sx={{ fontWeight: 'bold', bgcolor: 'background.paper' }}
+                                        >
                                             {column}
                                         </TableCell>
                                     ))}
@@ -300,12 +277,15 @@ const FileUploadImport = () => {
                                 {importedData.slice(0, 50).map((row, index) => (
                                     <TableRow key={index}>
                                         {columns.map((column, colIndex) => (
-                                            <TableCell key={colIndex} sx={{
-                                                maxWidth: 200,
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap'
-                                            }}>
+                                            <TableCell
+                                                key={colIndex}
+                                                sx={{
+                                                    maxWidth: 200,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
                                                 {column === 'dueDate'
                                                     ? new Date(row[column]).toLocaleDateString()
                                                     : row[column]}
@@ -316,7 +296,6 @@ const FileUploadImport = () => {
                             </TableBody>
                         </Table>
                     </TableContainer>
-
                     <Box display="flex" justifyContent="flex-end">
                         <Button
                             variant="contained"
@@ -330,21 +309,6 @@ const FileUploadImport = () => {
                     </Box>
                 </>
             )}
-
-            <Snackbar
-                open={notification.open}
-                autoHideDuration={6000}
-                onClose={handleNotificationClose}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            >
-                <Alert
-                    severity={notification.severity}
-                    onClose={handleNotificationClose}
-                    sx={{ width: '100%' }}
-                >
-                    {notification.message}
-                </Alert>
-            </Snackbar>
         </Container>
     );
 };
